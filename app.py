@@ -388,8 +388,12 @@ def render_homepage():
             </div>
         """, unsafe_allow_html=True)
         if st.button("Enter Standard Mode", type="secondary", width='stretch'):
-            st.session_state.page = "dashboard"
-            st.session_state.ai_mode = False
+            if not get_semantic_scholar_key():
+                st.session_state.page = "ss_api_key"
+                st.session_state.ai_mode = False
+            else:
+                st.session_state.page = "dashboard"
+                st.session_state.ai_mode = False
             st.rerun()
     
     with col2:
@@ -485,14 +489,20 @@ def render_api_key_input():
             </p>
         """, unsafe_allow_html=True)
 
-        col_a, col_b = st.columns(2)
-        
+        col_a, col_b, col_c = st.columns(3)
+
         with col_a:
             if st.button("Back to Home", width='stretch'):
                 st.session_state.page = "home"
                 st.rerun()
         
         with col_b:
+            if st.button("Skip for Now", width='stretch'):
+                st.session_state.page = "dashboard"
+                st.session_state.ai_mode = True
+                st.rerun()
+
+        with col_c:
             if st.button("Save & Continue", type="primary", width='stretch'):
                 if not gemini_key:
                     st.error("Please enter at least the Gemini API key to use AI features.")
@@ -516,6 +526,73 @@ def render_api_key_input():
                             st.rerun()
                         else:
                             st.error("Invalid Gemini API key. Please check and try again.")
+
+def render_ss_api_key_input():
+    """Render the Semantic Scholar API key input page for Standard Mode."""
+    st.markdown("""
+        <div style="text-align: center; padding: 2rem;">
+            <h1 class="main-header">Semantic Scholar API Key</h1>
+            <p class="sub-header">Enter your API key for better search experience (optional)</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown("""
+            <div class="metric-card">
+                <h4 style="color: #f0f0f0; margin-bottom: 1rem;">Semantic Scholar API Key (Optional but Recommended)</h4>
+                <p style="color: #888888; margin-bottom: 1rem;">
+                    Get a free Semantic Scholar API key for higher rate limits:
+                </p>
+                <p style="margin-bottom: 1rem;">
+                    <a href="https://www.semanticscholar.org/product/api#api-key" target="_blank" style="color: #ffd700;">
+                        https://www.semanticscholar.org/product/api
+                    </a>
+                </p>
+                <p style="color: #888888; font-size: 0.9rem;">
+                    Without an API key, you'll be limited to 100 requests per 5 minutes. 
+                    With a key, you get 5,000 requests per 5 minutes.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        ss_key = st.text_input(
+            "Semantic Scholar API Key",
+            type="password",
+            placeholder="Enter your Semantic Scholar API key here...",
+            help="Optional: Improves search rate limits",
+            key="ss_key_input_standard"
+        )
+
+        st.markdown("""
+            <p style="color: #ff9800; font-size: 0.9rem; margin-top: 1rem; text-align: center;">
+                NOTE: Your API key will be stored in memory for this session only and will not be saved to disk.
+            </p>
+        """, unsafe_allow_html=True)
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            if st.button("Back to Home", width='stretch'):
+                st.session_state.page = "home"
+                st.rerun()
+
+        with col_b:
+            if st.button("Skip for Now", width='stretch'):
+                st.session_state.page = "dashboard"
+                st.session_state.ai_mode = False
+                st.rerun()
+
+        with col_c:
+            if st.button("Save & Continue", type="primary", width='stretch'):
+                if ss_key:
+                    save_semantic_scholar_key_to_session(ss_key)
+                    st.success("Semantic Scholar API key stored in memory!")
+                    time.sleep(1)
+                st.session_state.page = "dashboard"
+                st.session_state.ai_mode = False
+                st.rerun()
 
 def search_semantic_scholar(query: str, limit: int = 10) -> list:
     """Search for papers using Semantic Scholar API."""
@@ -1236,6 +1313,8 @@ def main():
         render_homepage()
     elif st.session_state.page == "api_key":
         render_api_key_input()
+    elif st.session_state.page == "ss_api_key":
+        render_ss_api_key_input()
     else:
         render_dashboard()
 
