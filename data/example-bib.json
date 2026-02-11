@@ -1,0 +1,460 @@
+{
+  "references": [
+    {
+      "id": 1,
+      "authors": [
+        "L. Hartman",
+        "E. Zhou"
+      ],
+      "year": 2012,
+      "title": "Cognitive Drift in Long-Term Knowledge Systems",
+      "journal": "Journal of Applied Cognitive Science",
+      "volume": 18,
+      "issue": 2,
+      "pages": "113-129",
+      "doi": "10.1234/jacs.2012.01802",
+      "abstract": "This study explores the phenomenon of cognitive drift in large-scale knowledge systems over extended periods of use. Using simulated learning environments, the authors demonstrate how accumulated minor inaccuracies can influence system-level reasoning outcomes.",
+      "keywords": [
+        "cognitive drift",
+        "knowledge systems",
+        "long-term learning",
+        "simulation"
+      ]
+    },
+    {
+      "id": 2,
+      "authors": [
+        "M. Alvarez"
+      ],
+      "year": 2015,
+      "title": "Temporal Patterns in Synthetic Memory Models",
+      "journal": "Computational Memory Review",
+      "volume": 7,
+      "issue": 1,
+      "pages": "22-41",
+      "doi": "10.5678/cmr.2015.07101",
+      "abstract": "The paper investigates temporal pattern formation in synthetic memory architectures. Results indicate that periodic reinforcement significantly stabilizes memory retrieval accuracy.",
+      "keywords": [
+        "synthetic memory",
+        "temporal patterns",
+        "computational models"
+      ]
+    },
+    {
+      "id": 3,
+      "authors": [
+        "R. Singh",
+        "A. Patel"
+      ],
+      "year": 2018,
+      "title": "Hierarchical Attention Mechanisms in Abstract Reasoning",
+      "journal": "International Journal of Artificial Reasoning",
+      "volume": 24,
+      "issue": 4,
+      "pages": "301-320",
+      "doi": "10.9012/ijar.2018.24405",
+      "abstract": "This article presents a hierarchical attention framework designed to improve abstract reasoning tasks. Experimental results show notable gains in reasoning depth and inference consistency.",
+      "keywords": [
+        "attention mechanisms",
+        "abstract reasoning",
+        "hierarchical models"
+      ]
+    },
+    {
+      "id": 4,
+      "authors": [
+        "T. Morgan"
+      ],
+      "year": 2011,
+      "title": "Information Decay in Distributed Archives",
+      "journal": "Journal of Digital Preservation",
+      "volume": 9,
+      "issue": 3,
+      "pages": "77-94",
+      "doi": "10.2222/jdp.2011.09307",
+      "abstract": "The research analyzes information decay in distributed digital archives. Findings suggest redundancy alone is insufficient without periodic validation protocols.",
+      "keywords": [
+        "information decay",
+        "digital archives",
+        "data preservation"
+      ]
+    },
+    {
+      "id": 5,
+      "authors": [
+        "S. Klein",
+        "H. Richter"
+      ],
+      "year": 2019,
+      "title": "Synthetic Narratives and Machine Interpretation",
+      "journal": "Artificial Intelligence & Society",
+      "volume": 14,
+      "issue": 2,
+      "pages": "145-162",
+      "doi": "10.3344/ais.2019.14209",
+      "abstract": "This paper examines how machines construct and interpret synthetic narratives. The authors argue that narrative coherence emerges from constraint-based semantic alignment.",
+      "keywords": [
+        "synthetic narratives",
+        "machine interpretation",
+        "semantics"
+      ]
+    },
+    {
+      "id": 6,
+      "authors": [
+        "P. O'Donnell"
+      ],
+      "year": 2014,
+      "title": "Modeling Uncertainty in Autonomous Decision Systems",
+      "journal": "Journal of Autonomous Systems",
+      "volume": 11,
+      "issue": 1,
+      "pages": "1-19",
+      "doi": "10.8080/jas.2014.11101",
+      "abstract": "The study proposes a probabilistic framework for representing uncertainty in autonomous decision-making systems, improving robustness in dynamic environments.",
+      "keywords": [
+        "uncertainty modeling",
+        "autonomous systems",
+        "decision-making"
+      ]
+    },
+    {
+      "id": 7,
+      "authors": [
+        "Y. Nakamura",
+        "K. Ito"
+      ],
+      "year": 2016,
+      "title": "Semantic Compression Techniques for Large Knowledge Bases",
+      "journal": "Knowledge Engineering Quarterly",
+      "volume": 21,
+      "issue": 3,
+      "pages": "210-228",
+      "doi": "10.4555/keq.2016.21306",
+      "abstract": "This paper introduces semantic compression techniques that reduce storage requirements while maintaining inferential accuracy in large knowledge bases.",
+      "keywords": [
+        "semantic compression",
+        "knowledge bases",
+        "information storage"
+      ]
+    },
+    {
+      "id": 8,
+      "authors": [
+        "D. Wallace"
+      ],
+      "year": 2010,
+      "title": "Emergent Structures in Algorithmic Learning",
+      "journal": "Foundations of Machine Learning",
+      "volume": 5,
+      "issue": 2,
+      "pages": "55-73",
+      "doi": "10.6006/fml.2010.05204",
+      "abstract": "The article explores how emergent structures arise in algorithmic learning systems without explicit programming of higher-order rules.",
+      "keywords": [
+        "emergence",
+        "algorithmic learning",
+        "machine learning theory"
+      ]
+    },
+    {
+      "id": 9,
+      "authors": [
+        "C. Benitez",
+        "R. Holm"
+      ],
+      "year": 2020,
+      "title": "Evaluating Interpretability Metrics for Neural Models",
+      "journal": "Journal of Explainable AI",
+      "volume": 3,
+      "issue": 1,
+      "pages": "9-27",
+      "doi": "10.9191/jeai.2020.03102",
+      "abstract": "This study compares multiple interpretability metrics applied to neural models, highlighting trade-offs between transparency and predictive fidelity.",
+      "keywords": [
+        "interpretability",
+        "neural networks",
+        "explainable AI"
+      ]
+    },
+    {
+      "id": 10,
+      "authors": [
+        "A. Fowler"
+      ],
+      "year": 2013,
+      "title": "Concept Stability in Adaptive Learning Agents",
+      "journal": "Adaptive Systems Journal",
+      "volume": 12,
+      "issue": 4,
+      "pages": "289-305",
+      "doi": "10.7777/asj.2013.12409",
+      "abstract": "The paper analyzes how adaptive agents maintain concept stability while continuously updating internal representations.",
+      "keywords": [
+        "adaptive agents",
+        "concept stability",
+        "learning systems"
+      ]
+    },
+    {
+      "id": 11,
+      "authors": [
+        "J. Muller",
+        "S. Park"
+      ],
+      "year": 2017,
+      "title": "Cross-Domain Transfer in Artificial Reasoners",
+      "journal": "Machine Intelligence Reports",
+      "volume": 16,
+      "issue": 2,
+      "pages": "101-118",
+      "doi": "10.3001/mir.2017.16205",
+      "abstract": "This research investigates cross-domain transfer capabilities in artificial reasoners, demonstrating improved efficiency through shared latent representations.",
+      "keywords": [
+        "transfer learning",
+        "artificial reasoning",
+        "cross-domain learning"
+      ]
+    },
+    {
+      "id": 12,
+      "authors": [
+        "E. Laurent"
+      ],
+      "year": 2011,
+      "title": "Formal Constraints in Knowledge Representation",
+      "journal": "Journal of Symbolic Computation Studies",
+      "volume": 8,
+      "issue": 1,
+      "pages": "33-50",
+      "doi": "10.4848/jscs.2011.08103",
+      "abstract": "The article discusses formal constraint systems for knowledge representation and their impact on inference consistency.",
+      "keywords": [
+        "knowledge representation",
+        "formal constraints",
+        "symbolic computation"
+      ]
+    },
+    {
+      "id": 13,
+      "authors": [
+        "B. Chen"
+      ],
+      "year": 2021,
+      "title": "Adaptive Feedback Loops in Intelligent Systems",
+      "journal": "Systems Intelligence Review",
+      "volume": 4,
+      "issue": 2,
+      "pages": "66-84",
+      "doi": "10.5151/sir.2021.04204",
+      "abstract": "This paper examines adaptive feedback loops and their role in stabilizing intelligent system behavior under uncertainty.",
+      "keywords": [
+        "feedback loops",
+        "intelligent systems",
+        "adaptation"
+      ]
+    },
+    {
+      "id": 14,
+      "authors": [
+        "N. Ibrahim",
+        "F. Solis"
+      ],
+      "year": 2014,
+      "title": "Quantifying Abstraction in Computational Models",
+      "journal": "Computational Theory Journal",
+      "volume": 10,
+      "issue": 3,
+      "pages": "190-207",
+      "doi": "10.9099/ctj.2014.10308",
+      "abstract": "The study proposes metrics for quantifying abstraction levels in computational models and validates them across benchmark tasks.",
+      "keywords": [
+        "abstraction",
+        "computational models",
+        "metrics"
+      ]
+    },
+    {
+      "id": 15,
+      "authors": [
+        "R. Kowalski"
+      ],
+      "year": 2009,
+      "title": "Logic-Based Control in Autonomous Frameworks",
+      "journal": "Autonomous Control Systems",
+      "volume": 6,
+      "issue": 2,
+      "pages": "58-74",
+      "doi": "10.1212/acs.2009.06204",
+      "abstract": "This article explores logic-based control mechanisms and their application in autonomous system frameworks.",
+      "keywords": [
+        "logic-based control",
+        "autonomy",
+        "control systems"
+      ]
+    },
+    {
+      "id": 16,
+      "authors": [
+        "H. Svensson"
+      ],
+      "year": 2018,
+      "title": "Scalability Challenges in Knowledge Graph Construction",
+      "journal": "Journal of Data Structures",
+      "volume": 19,
+      "issue": 4,
+      "pages": "402-419",
+      "doi": "10.2323/jds.2018.19412",
+      "abstract": "The paper reviews scalability challenges encountered during large-scale knowledge graph construction and proposes mitigation strategies.",
+      "keywords": [
+        "knowledge graphs",
+        "scalability",
+        "data structures"
+      ]
+    },
+    {
+      "id": 17,
+      "authors": [
+        "I. Petrov",
+        "M. Novak"
+      ],
+      "year": 2016,
+      "title": "Contextual Alignment in Multi-Agent Communication",
+      "journal": "Journal of Multi-Agent Systems",
+      "volume": 13,
+      "issue": 1,
+      "pages": "14-32",
+      "doi": "10.6767/jmas.2016.13102",
+      "abstract": "This study analyzes contextual alignment strategies that improve communication efficiency in multi-agent environments.",
+      "keywords": [
+        "multi-agent systems",
+        "contextual alignment",
+        "communication"
+      ]
+    },
+    {
+      "id": 18,
+      "authors": [
+        "W. Thompson",
+        "L. Garcia"
+      ],
+      "year": 2022,
+      "title": "Robust Learning in Noisy Environments",
+      "journal": "Neural Computing and Applications",
+      "volume": 28,
+      "issue": 3,
+      "pages": "245-263",
+      "doi": "10.8888/nca.2022.28301",
+      "abstract": "This paper presents techniques for maintaining learning accuracy in the presence of noisy training data, with applications to real-world sensor data processing.",
+      "keywords": [
+        "robust learning",
+        "noisy data",
+        "neural networks"
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Chrysalis: A Unified System for Comparing Active Teaching and Passive Learning with AI Agents in Education",
+      "authors": [
+        "Prashanth Arun",
+        "Vinita Vader",
+        "Erya Xu",
+        "Brent McCready-Branch",
+        "Sarah Seabrook",
+        "Kyle Scholz",
+        "Ana Crisan",
+        "Igor Grossmann",
+        "Pascal Poupart"
+      ],
+      "year": 2025,
+      "journal": "arXiv.org",
+      "abstract": "AI-assisted learning has seen a remarkable uptick over the last few years, mainly due to the rise in popularity of Large Language Models (LLMs). Their ability to hold long-form, natural language interactions with users makes them excellent resources for exploring school- and university-level topics in a dynamic, active manner. We compare students'experiences when interacting with an LLM companion in two capacities: tutored learning and learning-by-teaching. We do this using Chrysalis, an LLM-based system that we have designed to support both AI tutors and AI teachable agents for any topic. Through a within-subject exploratory study with 36 participants, we present insights into student preferences between the two strategies and how constructs such as intellectual humility vary between these two interaction modes. To our knowledge, we are the first to conduct a direct comparison study on the effects of using an LLM as a tutor versus as a teachable agent on multiple topics. We hope that our work opens up new avenues for future research in this area.",
+      "keywords": []
+    },
+    {
+      "id": 20,
+      "title": "The clonal and mutational evolution spectrum of primary triple-negative breast cancers",
+      "authors": [
+        "Sohrab P. Shah",
+        "Andrew Roth",
+        "R. Goya",
+        "A. Oloumi",
+        "G. Ha",
+        "Yongjun Zhao",
+        "G. Turashvili",
+        "Jiarui Ding",
+        "Kane Tse",
+        "Gholamreza Haffari",
+        "Ali Bashashati",
+        "Leah M Prentice",
+        "J. Khattra",
+        "A. Burleigh",
+        "Damian Boon Siew Yap",
+        "V. Bernard",
+        "A. McPherson",
+        "K. Shumansky",
+        "Anamaria Crisan",
+        "Ryan Giuliany",
+        "A. Heravi\u2010Moussavi",
+        "Jamie Rosner",
+        "D. Lai",
+        "I. Birol",
+        "R. Varhol",
+        "Angela Tam",
+        "Noreen Dhalla",
+        "Thomas Zeng",
+        "Kevin Ma",
+        "S. Chan",
+        "M. Griffith",
+        "A. Moradian",
+        "S. G. Cheng",
+        "G. Morin",
+        "P. Watson",
+        "K. Gelmon",
+        "S. Chia",
+        "S. Chin",
+        "C. Curtis",
+        "O. Rueda",
+        "P. Pharoah",
+        "Sambasivarao Damaraju",
+        "J. Mackey",
+        "K. Hoon",
+        "T. Harkins",
+        "V. Tadigotla",
+        "M. Sigaroudinia",
+        "P. Gascard",
+        "T. Tlsty",
+        "J. Costello",
+        "Irmtraud M. Meyer",
+        "C. Eaves",
+        "W. Wasserman",
+        "Steven P. Jones",
+        "D. Huntsman",
+        "M. Hirst",
+        "C. Caldas",
+        "M. Marra",
+        "Samuel Aparicio"
+      ],
+      "year": 2012,
+      "journal": "Nature",
+      "abstract": "No abstract available.",
+      "keywords": []
+    },
+    {
+      "id": 21,
+      "title": "Radiopharmaceuticals for PET and SPECT Imaging: A Literature Review over the Last Decade",
+      "authors": [
+        "George Cri\u0219an",
+        "Nastasia Sanda Moldovean-Cioroianu",
+        "Diana-Gabriela Timaru",
+        "Gabriel Andrie\u0219",
+        "C. C\u0103inap",
+        "V. Chi\u0219"
+      ],
+      "year": 2022,
+      "journal": "International Journal of Molecular Sciences",
+      "abstract": "Positron emission tomography (PET) uses radioactive tracers and enables the functional imaging of several metabolic processes, blood flow measurements, regional chemical composition, and/or chemical absorption. Depending on the targeted processes within the living organism, different tracers are used for various medical conditions, such as cancer, particular brain pathologies, cardiac events, and bone lesions, where the most commonly used tracers are radiolabeled with 18F (e.g., [18F]-FDG and NA [18F]). Oxygen-15 isotope is mostly involved in blood flow measurements, whereas a wide array of 11C-based compounds have also been developed for neuronal disorders according to the affected neuroreceptors, prostate cancer, and lung carcinomas. In contrast, the single-photon emission computed tomography (SPECT) technique uses gamma-emitting radioisotopes and can be used to diagnose strokes, seizures, bone illnesses, and infections by gauging the blood flow and radio distribution within tissues and organs. The radioisotopes typically used in SPECT imaging are iodine-123, technetium-99m, xenon-133, thallium-201, and indium-111. This systematic review article aims to clarify and disseminate the available scientific literature focused on PET/SPECT radiotracers and to provide an overview of the conducted research within the past decade, with an additional focus on the novel radiopharmaceuticals developed for medical imaging.",
+      "keywords": []
+    }
+  ]
+}
