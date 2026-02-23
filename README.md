@@ -1,53 +1,76 @@
-# CS889 - Literature Review Dashboard
+# Literature Review Dashboard
 
-A Streamlit dashboard for exploring and analyzing academic papers.
+![Overall Dashboard Demo](docs/overall_dashboard.webp)
 
-## Requirements
+A comprehensive Streamlit application designed for researchers and academics to explore, analyze, and synthesize academic literature. The platform offers both standard analytical tools and advanced AI-powered capabilities to accelerate the literature review process.
 
-- Python 3.9+
+## Key Features
 
-## Setup
+The application operates in two primary modes:
 
-```bash
-pip install -r requirements.txt
-```
+### Standard Mode
+- **Knowledge Base Management**: Build and curate a personal collection of academic papers.
+- **Advanced Filtering**: Navigate literature by year, author, and keywords.
+- **Publication Analytics**: Visualize publication trends over time.
+- **Keyword Analysis**: Generate word clouds to identify prevalent themes in your collection.
+- **Literature Export**: Summarize and export findings for your research.
 
-## Run
+### AI Mode
+*Includes all Standard Mode features, plus:*
+- **Paper Chat**: Interact directly with specific papers to extract methodologies, results, and limitations.
+
+  ![Paper Chat Demo](docs/chat_with_paper.webp)
+
+- **Automated Summaries**: Generate comprehensive literature overviews and methodology comparisons across multiple papers.
+- **Research Insights**: Conduct thematic analysis and discover citation suggestions.
+- **Deep Research**: Utilize natural language queries to let the AI automatically extract keywords, search online databases (Semantic Scholar), deduplicate, and filter relevant papers.
+
+  ![Deep Research Demo](docs/deep_research.webp)
+
+## Session Analytics & Reporting
+The application logs interactions and provides a comprehensive reporting view, useful for tracking review sessions or structured HCI studies.
+
+![Final Analysis and Report](docs/final_analysis_and_report.webp)
+
+## Prerequisites
+
+- Python 3.9 or higher
+
+API Keys are strictly stored in memory for the duration of the session and are not saved to disk.
+- **Gemini API Key**: Required for AI Mode features. [Get a key](https://aistudio.google.com/apikey)
+- **Semantic Scholar API Key**: Optional but recommended to increase search rate limits (from 100 to 5,000 requests per 5 minutes). [Get a key](https://www.semanticscholar.org/product/api)
+
+## Installation and Setup
+
+1. **Clone the repository** (if applicable) and navigate to the project directory:
+   ```bash
+   cd LR_Demo
+   ```
+
+2. **Install the required dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure API Keys (Optional)**:
+   You can provide your API keys through the UI at runtime, or create a `.env` file in the project root for automatic loading:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key_here
+   ```
+
+## Usage
+
+Start the Streamlit application:
 
 ```bash
 streamlit run app.py
 ```
 
-## API Keys
+Upon launching, the dashboard will prompt you to enter participant information (applicable for configured HCI studies) and select your preferred mode of operation.
 
-### Gemini API (Required for AI Mode)
+## Architecture and Configuration
 
-To use AI-powered features, you'll need a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
-
-### Semantic Scholar API (Optional but Recommended)
-
-For paper search features, a Semantic Scholar API key is optional but highly recommended. Without it, you're limited to 100 requests per 5 minutes. With an API key, you get 5,000 requests per 5 minutes.
-
-Get your free API key at: [https://www.semanticscholar.org/product/api](https://www.semanticscholar.org/product/api)
-
-### How to Provide API Keys
-
-You can provide your API keys in two ways:
-
-1. **Through the UI (Recommended)**: When you select "AI Mode", you'll be prompted to enter your API keys. The keys will be stored in memory for the current session only and will not be saved to disk.
-
-2. **Via .env file**: Create a `.env` file in the project root:
-   ```
-   GEMINI_API_KEY=your_gemini_api_key_here
-   SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key_here
-   ```
-   This will automatically load the keys on startup.
-
-## Features
-
-- **Standard Mode**: Browse and analyze your paper collection
-- **AI Mode**: Unlock AI-powered insights, summaries, and Q&A
-- **Online Search**: Search Semantic Scholar for new papers
-- **Analytics**: Visualize publication trends and keyword analysis
-- **Deep Research**: AI-assisted literature discovery
-
+- `app.py`: Main Streamlit application and UI routing.
+- `task_config.py`: Defines the tasks and evaluation criteria for specific study modes.
+- `event_logger.py`: Handles session logging and metric computation.
