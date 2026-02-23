@@ -5,6 +5,7 @@ Literature Review Dashboard - A Streamlit application for exploring and analyzin
 import json
 import os
 import time
+from datetime import datetime, timezone
 import streamlit as st
 import pandas as pd
 from collections import Counter
@@ -14,6 +15,11 @@ import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from google import genai
 import requests
+
+from event_logger import (
+    log_event, init_session, generate_participant_id,
+    load_participant_log, compute_derived_metrics, events_to_csv_string,
+)
 
 load_dotenv()
 
@@ -82,6 +88,7 @@ st.set_page_config(
 )
 
 st.markdown("""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 <style>
     /* Global styling - dark monochrome theme */
     .stApp {
@@ -101,7 +108,7 @@ st.markdown("""
     }
     
     .sub-header {
-        color: #888888;
+        color: #a0a0a0;
         text-align: center;
         font-size: 1.1rem;
         margin-bottom: 2rem;
@@ -126,13 +133,21 @@ st.markdown("""
     }
     
     .metric-value {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         font-size: 2.5rem;
         font-weight: 700;
         color: #ffd700;
     }
     
+    .metric-icon {
+        font-size: 2.5rem !important;
+        color: rgba(255,215,0,0.8);
+    }
+    
     .metric-label {
-        color: #888888;
+        color: #a0a0a0;
         font-size: 0.9rem;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -175,7 +190,7 @@ st.markdown("""
     }
     
     .paper-abstract {
-        color: #b0b0b0;
+        color: #e0e0e0;
         font-size: 0.9rem;
         line-height: 1.6;
         margin-top: 1rem;
@@ -257,6 +272,82 @@ st.markdown("""
         margin-right: 0.5rem;
         border: 1px solid rgba(255,215,0,0.2);
     }
+
+    /* AI Tools Navigation Panel */
+    .ai-nav-panel {
+        background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .ai-nav-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #ffd700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255,215,0,0.2);
+    }
+
+    .ai-tool-desc {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 0.5rem;
+        line-height: 1.4;
+    }
+
+    /* Fixed Radio Button Layout for AI Tools */
+    div.stRadio > div {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    div.stRadio > div > label {
+        background: rgba(255,255,255,0.03);
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.08);
+        width: 100% !important;
+        margin: 0;
+        align-items: center;
+        justify-content: flex-start;
+    }
+    div.stRadio > div > label:hover {
+        background: rgba(255,255,255,0.08);
+        border-color: rgba(255,215,0,0.3);
+    }
+
+    /* AI Content Panel */
+    .ai-content-panel {
+        background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 2rem;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        min-height: 400px;
+    }
+
+    .ai-content-header {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #f0f0f0;
+        margin-bottom: 0.25rem;
+    }
+
+    .ai-content-subtitle {
+        font-size: 0.9rem;
+        color: #a0a0a0;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -315,9 +406,10 @@ def create_dataframe(papers: list) -> pd.DataFrame:
 
 def render_metric_card(value, label, icon=""):
     """Render a styled metric card."""
+    icon_html = f'<span class="material-symbols-rounded metric-icon">{icon}</span>' if icon else ''
     st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{icon} {value}</div>
+            <div class="metric-value">{icon_html}<span>{value}</span></div>
             <div class="metric-label">{label}</div>
         </div>
     """, unsafe_allow_html=True)
@@ -355,13 +447,118 @@ def render_paper_card(paper: dict):
         </div>
     """, unsafe_allow_html=True)
 
+def render_participant_setup():
+    """Render participant setup page — first page shown in the session."""
+    st.markdown("""
+        <div style="text-align: center; padding: 3rem 2rem 1rem;">
+            <h1 class="main-header">Welcome to the Study</h1>
+            <p class="sub-header" style="font-size: 1.2rem; max-width: 650px; margin: 0 auto 2rem auto;">
+                Please provide your information below to begin the session.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.container(border=True):
+            st.markdown("### Participant Information")
+
+            # Propose a random ID if not already generated
+            if "proposed_id" not in st.session_state:
+                st.session_state.proposed_id = generate_participant_id()
+
+            p_name = st.text_input(
+                "Your Name",
+                value=st.session_state.get("participant_name", ""),
+                placeholder="e.g. Jane Doe",
+                help="Used to personalise your experience",
+            )
+            
+            col_exp1, col_exp2 = st.columns(2)
+            
+            with col_exp1:
+                lit_exp_levels = {
+                    1: "Novice (Never done before)",
+                    2: "Beginner (Done it once or twice)",
+                    3: "Intermediate (Do it occasionally)",
+                    4: "Advanced (Do it regularly)",
+                    5: "Expert (Extensive experience)"
+                }
+                
+                lit_exp_val = st.slider(
+                    "Previous experience with literature review",
+                    min_value=1, max_value=5, value=st.session_state.get("lit_exp_val", 3),
+                    key="lit_exp_slider"
+                )
+                st.markdown(f"<p style='color: #ffd700; font-size: 0.9em; margin-top: -10px;'>Experience level: <b>{lit_exp_levels[lit_exp_val]}</b></p>", unsafe_allow_html=True)
+                
+            with col_exp2:
+                ai_exp_levels = {
+                    1: "Novice (Never used AI in research)",
+                    2: "Beginner (Used occasionally for basic tasks)",
+                    3: "Intermediate (Regular use for specific tasks)",
+                    4: "Advanced (Integrate AI frequently in workflow)",
+                    5: "Expert (Advanced usage and prompting)"
+                }
+                
+                ai_exp_val = st.slider(
+                    "Experience with AI in research",
+                    min_value=1, max_value=5, value=st.session_state.get("ai_exp_val", 3),
+                    key="ai_exp_slider"
+                )
+                st.markdown(f"<p style='color: #ffd700; font-size: 0.9em; margin-top: -10px;'>Experience level: <b>{ai_exp_levels[ai_exp_val]}</b></p>", unsafe_allow_html=True)
+
+            p_info = st.text_area(
+                "Additional Info (optional)",
+                value=st.session_state.get("participant_info", ""),
+                placeholder="e.g. Affiliation, field of study…",
+                height=80,
+            )
+            p_id = st.text_input(
+                "Participant ID",
+                value=st.session_state.proposed_id,
+                help="Auto-generated. Change it if you already have one.",
+            )
+
+            st.markdown("---")
+            st.markdown("### Study Configuration")
+
+            task_id = st.selectbox(
+                "Task",
+                ["T1 (Targeted Literature Search)", "T2 (Deep Understanding of one paper)"],
+                help="Select the task assigned to you.",
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Start Session", type="primary", width='stretch'):
+            if not p_id.strip():
+                st.error("Participant ID cannot be empty.")
+            else:
+                st.session_state.participant_id = p_id.strip()
+                st.session_state.participant_name = p_name.strip()
+                st.session_state.participant_info = p_info.strip()
+                st.session_state.lit_exp_val = lit_exp_val
+                st.session_state.ai_exp_val = ai_exp_val
+                st.session_state.task_id = task_id
+                st.session_state.session_start_ts = datetime.now(timezone.utc).isoformat()
+                log_event("task_start", {
+                    "task_name": task_id,
+                    "lit_review_experience": lit_exp_val,
+                    "ai_experience": ai_exp_val
+                })
+                st.session_state.page = "home"
+                st.rerun()
+
+
 def render_homepage():
     """Render the welcome homepage with mode selection."""
-    st.markdown("""
+    p_name = st.session_state.get("participant_name", "")
+    greeting = f", {p_name}" if p_name else ""
+    st.markdown(f"""
         <div style="text-align: center; padding: 4rem 2rem;">
             <h1 class="main-header">Literature Review Dashboard</h1>
             <p class="sub-header" style="font-size: 1.3rem; max-width: 700px; margin: 0 auto 3rem auto;">
-                Explore, analyze, and discover insights from your research papers. 
+                Welcome{greeting}! Explore, analyze, and discover insights from your research papers.
                 Choose your preferred mode to get started.
             </p>
         </div>
@@ -388,12 +585,8 @@ def render_homepage():
             </div>
         """, unsafe_allow_html=True)
         if st.button("Enter Standard Mode", type="secondary", width='stretch'):
-            if not get_semantic_scholar_key():
-                st.session_state.page = "ss_api_key"
-                st.session_state.ai_mode = False
-            else:
-                st.session_state.page = "dashboard"
-                st.session_state.ai_mode = False
+            st.session_state.ai_mode = False
+            st.session_state.page = "task_briefing"
             st.rerun()
     
     with col2:
@@ -413,13 +606,10 @@ def render_homepage():
             </div>
         """, unsafe_allow_html=True)
         if st.button("Enter AI Mode", type="primary", width='stretch'):
-            if init_gemini():
-                st.session_state.page = "dashboard"
-                st.session_state.ai_mode = True
-                st.rerun()
-            else:
-                st.session_state.page = "api_key"
-                st.rerun()
+            st.session_state.used_ai_mode = True
+            st.session_state.ai_mode = True
+            st.session_state.page = "task_briefing"
+            st.rerun()
 
 def render_api_key_input():
     """Render the API key input page."""
@@ -754,7 +944,18 @@ def filter_by_relevance(papers: list, description: str, progress_callback=None) 
 def render_dashboard():
     """Render the main dashboard."""
     ai_mode = st.session_state.get('ai_mode', False)
+    if ai_mode:
+        st.session_state.used_ai_mode = True
     with st.sidebar:
+        # ── Participant info ──
+        p_name = st.session_state.get('participant_name', '')
+        p_id = st.session_state.get('participant_id', 'N/A')
+        st.markdown(f"**Participant:** {p_name or 'Anonymous'}")
+        st.markdown(f"**ID:** `{p_id}`")
+        task_label = st.session_state.get('task_id', '')
+        st.caption(f"Task: {task_label}")
+        st.markdown("---")
+
         st.markdown("### Navigation")
         if st.button("← Back to Home", width='stretch'):
             st.session_state.page = "home"
@@ -777,6 +978,32 @@ def render_dashboard():
             else:
                 st.warning("Semantic Scholar: Using public limits")
                 st.caption("Configure API key for higher rate limits")
+
+        st.markdown("---")
+        with st.expander("Quick Guide", expanded=False):
+            st.markdown("""
+                **How to use this dashboard:**
+                1. **Search Online:** Find new papers and add them to your collection.
+                2. **Papers:** View, filter, and sort your collected papers.
+                3. **Analytics/Keywords:** Discover trends and common themes in your collection.
+                4. **AI Assistant:** Select papers to generate summaries, ask questions, or run Deep Research.
+            """)
+        st.markdown("---")
+
+        # ── End Session button ──
+        if st.button("End Session", type="primary", width='stretch'):
+            # Compute duration from session start
+            start_ts = st.session_state.get('session_start_ts')
+            duration = None
+            if start_ts:
+                t0 = datetime.fromisoformat(start_ts)
+                duration = (datetime.now(timezone.utc) - t0).total_seconds()
+            log_event("task_submit", {
+                "task_name": st.session_state.get('task_id', ''),
+                "duration_seconds": duration,
+            })
+            st.session_state.page = "session_end"
+            st.rerun()
 
         st.markdown("---")
         st.markdown("#### About")
@@ -851,19 +1078,19 @@ def render_dashboard():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        render_metric_card(len(filtered_papers), "Papers Found", "")
+        render_metric_card(len(filtered_papers), "Papers Found", "article")
     with col2:
         unique_authors = set()
         for p in filtered_papers:
             unique_authors.update(p.get('authors', []))
-        render_metric_card(len(unique_authors), "Unique Authors", "")
+        render_metric_card(len(unique_authors), "Unique Authors", "group")
     with col3:
-        render_metric_card(filtered_df['journal'].nunique(), "Journals", "")
+        render_metric_card(filtered_df['journal'].nunique(), "Journals", "menu_book")
     with col4:
         all_kws = set()
         for p in filtered_papers:
             all_kws.update(p.get('keywords', []))
-        render_metric_card(len(all_kws), "Keywords", "")
+        render_metric_card(len(all_kws), "Keywords", "tag")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -874,18 +1101,16 @@ def render_dashboard():
         tabs_list.append("AI Assistant")
     
     tabs = st.tabs(tabs_list)
-    tab1, tab2, tab3, tab4, tab_search = tabs[:5]
-    if ai_mode:
-        tab5 = tabs[5]
     
-    with tab1:
+    with tabs[0]:
         st.markdown("### Paper Collection")
         
         col1, col2 = st.columns([3, 1])
         with col1:
             sort_by = st.selectbox(
                 "Sort by",
-                ["Year (Newest First)", "Year (Oldest First)", "Title (A-Z)", "Title (Z-A)", "Author Count"]
+                ["Year (Newest First)", "Year (Oldest First)", "Title (A-Z)", "Title (Z-A)", "Author Count"],
+                help="Choose how you want to order your paper collection."
             )
         
         sorted_papers = filtered_papers.copy()
@@ -908,7 +1133,7 @@ def render_dashboard():
         else:
             st.info("No papers match your filter criteria.")
     
-    with tab2:
+    with tabs[1]:
         st.markdown("### Publication Analytics")
         
         col1, col2 = st.columns(2)
@@ -937,7 +1162,7 @@ def render_dashboard():
             kw_count_dist = filtered_df['keyword_count'].value_counts().sort_index()
             st.bar_chart(kw_count_dist, color='#888888')
     
-    with tab3:
+    with tabs[2]:
         st.markdown("### Keyword Analysis")
         keyword_counter = Counter()
         for p in filtered_papers:
@@ -995,7 +1220,7 @@ def render_dashboard():
         else:
             st.info("No keywords available for the filtered papers.")
     
-    with tab4:
+    with tabs[3]:
         st.markdown("### Literature Summary")
         col1, col2 = st.columns(2)
         
@@ -1048,8 +1273,62 @@ def render_dashboard():
             file_name="literature_review.csv",
             mime="text/csv"
         )
+
+        st.markdown("---")
+        st.markdown("### Submit Your Task Outputs")
+        st.caption("Use the forms below to submit your final findings for this session.")
+
+        with st.expander("Submit Summary", expanded=False):
+            summary_text = st.text_area(
+                "Write your literature summary",
+                height=200,
+                key="task_summary_text",
+                placeholder="Write a concise summary of the literature you reviewed…",
+            )
+            if st.button("Submit Summary", type="primary", key="btn_submit_summary"):
+                if summary_text.strip():
+                    log_event("summary_submit", {
+                        "word_count": len(summary_text.split()),
+                        "text": summary_text.strip(),
+                    })
+                    st.success("Summary submitted and logged!")
+                else:
+                    st.warning("Please write something before submitting.")
+
+        with st.expander("Submit Research Gaps", expanded=False):
+            gap_text = st.text_area(
+                "Describe research gaps you identified",
+                height=200,
+                key="task_gap_text",
+                placeholder="What gaps or future directions did you identify?…",
+            )
+            if st.button("Submit Research Gaps", type="primary", key="btn_submit_gap"):
+                if gap_text.strip():
+                    log_event("gap_submit", {
+                        "word_count": len(gap_text.split()),
+                        "text": gap_text.strip(),
+                    })
+                    st.success("Research gaps submitted and logged!")
+                else:
+                    st.warning("Please write something before submitting.")
+
+        with st.expander("Submit Keywords (Task T2)", expanded=False):
+            kw_input = st.text_input(
+                "Enter keywords separated by commas",
+                key="task_keywords_input",
+                placeholder="e.g. attention mechanism, segmentation, U-Net",
+            )
+            if st.button("Submit Keywords", type="primary", key="btn_submit_kw"):
+                kw_list = [k.strip() for k in kw_input.split(",") if k.strip()]
+                if kw_list:
+                    log_event("keywords_submit", {
+                        "keywords": kw_list,
+                    })
+                    st.success(f"Submitted {len(kw_list)} keywords!")
+                else:
+                    st.warning("Please enter at least one keyword.")
     
-    with tab_search:
+    with tabs[4]:
         st.markdown("### Search Semantic Scholar")
         st.markdown("Find real academic papers online and add them to your knowledge base.")
         
@@ -1058,9 +1337,21 @@ def render_dashboard():
             search_term = st.text_input("Enter search query", placeholder="e.g. deep learning for medical imaging")
         with col_s2:
             st.markdown("<br>", unsafe_allow_html=True)
-            search_button = st.button("Search Online", type="primary", use_container_width=True)
+            search_button = st.button("Search Online", type="primary", width='stretch')
             
         if search_button and search_term:
+            prev = st.session_state.get('last_search_query')
+            if prev and prev != search_term:
+                log_event("keyword_refine", {
+                    "previous_query": prev,
+                    "new_query": search_term,
+                })
+            log_event("search_query", {
+                "query_text": search_term,
+                "query_length": len(search_term),
+            })
+            st.session_state.last_search_query = search_term
+
             with st.spinner("Searching Semantic Scholar..."):
                 results = search_semantic_scholar(search_term)
                 st.session_state.search_results = results
@@ -1070,26 +1361,39 @@ def render_dashboard():
         if search_results:
             st.success(f"Found {len(search_results)} papers for '{st.session_state.get('search_term_used', '')}'.")
             existing_titles = {p.get('title', '').lower() for p in st.session_state.get('user_papers', [])}
-            for paper in search_results:
-                render_paper_card(paper)
-                col_link, col_add = st.columns([3, 1])
-                with col_link:
-                    if paper.get('url'):
-                        st.markdown(f"[View on Semantic Scholar]({paper.get('url')})")
-                with col_add:
-                    already_added = paper.get('title', '').lower() in existing_titles
-                    if already_added:
-                        st.button("Already in Collection", key=f"add_{paper.get('id')}", disabled=True)
-                    else:
-                        if st.button("Add to Knowledge Base", key=f"add_{paper.get('id')}", type="primary"):
-                            add_paper_to_collection(paper)
-                            st.toast(f"Added: {paper.get('title')}")
-                            st.rerun()
+            for idx, paper in enumerate(search_results):
+                with st.expander(f"{paper.get('title', 'Untitled')}", expanded=False):
+                    log_event("paper_open", {
+                        "paper_id": str(paper.get('id', '')),
+                        "rank_position": idx + 1,
+                    })
+                    render_paper_card(paper)
+                    col_link, col_add = st.columns([3, 1])
+                    with col_link:
+                        if paper.get('url'):
+                            if st.link_button("View on Semantic Scholar", paper.get('url')):
+                                pass
+                            log_event("source_verification_click", {
+                                "paper_id": str(paper.get('id', '')),
+                                "source_type": "external_link",
+                            })
+                    with col_add:
+                        already_added = paper.get('title', '').lower() in existing_titles
+                        if already_added:
+                            st.button("Already in Collection", key=f"add_{paper.get('id')}", disabled=True)
+                        else:
+                            if st.button("Add to Knowledge Base", key=f"add_{paper.get('id')}", type="primary"):
+                                log_event("paper_select", {
+                                    "paper_id": str(paper.get('id', '')),
+                                })
+                                add_paper_to_collection(paper)
+                                st.toast(f"Added: {paper.get('title')}")
+                                st.rerun()
         elif search_button:
             st.warning("No results found or error occurred.")
 
     if ai_mode:
-        with tab5:
+        with tabs[5]:
             st.markdown("### AI Research Assistant")
             
             if not init_gemini():
@@ -1098,201 +1402,742 @@ def render_dashboard():
 
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
-                    if st.button("Enter API Key", type="primary", key="ai_tab_api_key", use_container_width=True):
+                    if st.button("Enter API Key", type="primary", key="ai_tab_api_key", width='stretch'):
                         st.session_state.page = "api_key"
                         st.rerun()
             else:
-                ai_tab1, ai_tab2, ai_tab3, ai_tab4 = st.tabs(["Paper Chat", "AI Summary", "Research Insights", "Deep Research"])
+                col_nav, col_content = st.columns([1, 4])
                 
-                with ai_tab1:
-                    st.markdown("#### Ask Questions About a Paper")
-                    st.caption("Select a specific paper to ask questions about.")
-                    
-                    paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
-                    if paper_titles:
-                        selected_title = st.selectbox("Select a paper", paper_titles, key="chat_paper_select")
-                        selected_paper = next((p for p in filtered_papers if p.get('title') == selected_title), None)
-                        
-                        if selected_paper:
-                            with st.expander("Selected Paper Details", expanded=False):
-                                render_paper_card(selected_paper)
-                            
-                            chat_context = f"Title: {selected_paper.get('title')}\nAuthors: {', '.join(selected_paper.get('authors', []))}\nAbstract: {selected_paper.get('abstract', 'N/A')}\nKeywords: {', '.join(selected_paper.get('keywords', []))}"
-                        
-                            user_question = st.text_area(
-                                "Your Question",
-                                placeholder="e.g., What methodology does this paper use?",
-                                height=100
-                            )
-                            
-                            if st.button("Ask AI", type="primary"):
-                                if user_question:
-                                    with st.spinner("Analyzing paper..."):
-                                        context = f"You are a research assistant. Analyze the following academic paper and answer the user's question.\n\nPaper:\n{chat_context}"
-                                        response = get_gemini_response(user_question, context)
-                                        st.markdown("#### Response")
-                                        st.markdown(response)
-                                else:
-                                    st.warning("Please enter a question.")
-                    else:
-                        st.info("No papers available. Adjust your filters to include papers.")
+                with col_nav:
+                  with st.container(border=True):
+                    st.markdown('<div class="ai-nav-title">AI Tools</div>', unsafe_allow_html=True)
+                    selected_tool = st.radio(
+                        "Tool Selection",
+                        ["Paper Chat", "AI Summary", "Research Insights", "Deep Research"],
+                        label_visibility="collapsed"
+                    )
+                    tool_descriptions = {
+                        "Paper Chat": "Ask questions about a specific paper.",
+                        "AI Summary": "Generate summaries across multiple papers.",
+                        "Research Insights": "Discover themes and citation patterns.",
+                        "Deep Research": "AI-powered paper discovery from the web."
+                    }
+                    st.markdown(f'<div class="ai-tool-desc">{tool_descriptions[selected_tool]}</div>', unsafe_allow_html=True)
                 
-                with ai_tab2:
-                    st.markdown("#### Generate AI Summaries")
-                    
-                    summary_paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
-                    selected_summary_papers = st.multiselect(
-                        "Select papers to include in summary",
-                        summary_paper_titles,
-                        default=summary_paper_titles[:10],
-                        key="summary_paper_select"
-                    )
-                    st.caption(f"Analyzing {len(selected_summary_papers)} of {len(filtered_papers)} papers.")
-                    
-                    summary_type = st.selectbox(
-                        "Summary Type",
-                        ["Literature Overview", "Research Gaps", "Methodology Comparison", "Key Findings"]
-                    )
-                    
-                    if st.button("Generate Summary", type="primary"):
-                        if not selected_summary_papers:
-                            st.warning("Please select at least one paper.")
+                with col_content:
+                  with st.container(border=True):
+                    if selected_tool == "Paper Chat":
+                        st.markdown('<div class="ai-content-header">Ask Questions About a Paper</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ai-content-subtitle">Select a paper and ask the AI anything about it.</div>', unsafe_allow_html=True)
+                        
+                        paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
+                        if paper_titles:
+                            selected_title = st.selectbox("Select a paper", paper_titles, key="chat_paper_select")
+                            selected_paper = next((p for p in filtered_papers if p.get('title') == selected_title), None)
+                            
+                            if selected_paper:
+                                with st.expander("Selected Paper Details", expanded=False):
+                                    render_paper_card(selected_paper)
+                                
+                                chat_context = f"Title: {selected_paper.get('title')}\nAuthors: {', '.join(selected_paper.get('authors', []))}\nAbstract: {selected_paper.get('abstract', 'N/A')}\nKeywords: {', '.join(selected_paper.get('keywords', []))}"
+                            
+                                user_question = st.text_area(
+                                    "Your Question",
+                                    placeholder="e.g., What methodology does this paper use? How does it evaluate the results?",
+                                    height=100,
+                                    help="Type your question here. The AI will use the paper's title, abstract, and authors to formulate an answer."
+                                )
+                                
+                                if st.button("Ask AI", type="primary", help="Click to get an AI-generated answer based on the context of the selected paper."):
+                                    if user_question:
+                                        log_event("ai_call", {
+                                            "feature": "qa",
+                                            "input_length": len(user_question),
+                                        })
+                                        with st.spinner("Analyzing paper..."):
+                                            context = f"You are a research assistant. Analyze the following academic paper and answer the user's question.\n\nPaper:\n{chat_context}"
+                                            response = get_gemini_response(user_question, context)
+                                            log_event("ai_output_generated", {
+                                                "feature": "qa",
+                                                "output_length": len(response),
+                                            })
+                                            st.markdown("#### Response")
+                                            st.markdown(response)
+                                    else:
+                                        st.warning("Please enter a question.")
                         else:
-                            with st.spinner(f"Generating {summary_type}..."):
-                                selected_papers_data = [p for p in filtered_papers if p.get('title') in selected_summary_papers]
-                                summary_context = "\n\n".join([
-                                    f"Title: {p.get('title')}\nAuthors: {', '.join(p.get('authors', []))}\nAbstract: {p.get('abstract', 'N/A')}\nKeywords: {', '.join(p.get('keywords', []))}"
-                                    for p in selected_papers_data
-                                ])
-                                prompts = {
-                                    "Literature Overview": "Provide a comprehensive literature overview summarizing the main themes, research areas, and contributions of these papers.",
-                                    "Research Gaps": "Identify potential research gaps and future research directions based on these papers.",
-                                    "Methodology Comparison": "Compare and contrast the research methodologies used across these papers.",
-                                    "Key Findings": "Summarize the key findings and conclusions from each paper."
-                                }
-                                context = f"You are an academic research analyst. Based on the following papers, {prompts[summary_type].lower()}\n\nPapers:\n{summary_context}"
-                                response = get_gemini_response(prompts[summary_type], context)
-                                st.markdown(f"#### {summary_type}")
-                                st.markdown(response)
-                
-                with ai_tab3:
-                    st.markdown("#### Research Insights")
-                    st.caption("Get AI-generated insights about your paper collection.")
+                            st.info("No papers available. Adjust your filters to include papers.")
                     
-                    insights_paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
-                    selected_insights_papers = st.multiselect(
-                        "Select papers to analyze",
-                        insights_paper_titles,
-                        default=insights_paper_titles[:10],
-                        key="insights_paper_select"
-                    )
-                    st.caption(f"Analyzing {len(selected_insights_papers)} of {len(filtered_papers)} papers.")
-                    
-                    insights_papers_data = [p for p in filtered_papers if p.get('title') in selected_insights_papers]
-                    insights_context = "\n\n".join([
-                        f"Title: {p.get('title')}\nAuthors: {', '.join(p.get('authors', []))}\nAbstract: {p.get('abstract', 'N/A')}\nKeywords: {', '.join(p.get('keywords', []))}"
-                        for p in insights_papers_data
-                    ])
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        if st.button("Thematic Analysis", width='stretch'):
-                            if not selected_insights_papers:
+                    elif selected_tool == "AI Summary":
+                        st.markdown('<div class="ai-content-header">Generate AI Summaries</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ai-content-subtitle">Select papers and choose a summary type to generate insights.</div>', unsafe_allow_html=True)
+                        
+                        summary_paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
+                        selected_summary_papers = st.multiselect(
+                            "Select papers to include in summary",
+                            summary_paper_titles,
+                            default=summary_paper_titles[:10],
+                            key="summary_paper_select"
+                        )
+                        st.caption(f"Analyzing {len(selected_summary_papers)} of {len(filtered_papers)} papers.")
+                        
+                        summary_type = st.selectbox(
+                            "Summary Type",
+                            ["Literature Overview", "Research Gaps", "Methodology Comparison", "Key Findings"],
+                            help="Select the type of AI-generated summary you want for the selected papers."
+                        )
+                        
+                        if st.button("Generate Summary", type="primary", help="Click to generate an AI summary based on the abstracts of the selected papers."):
+                            if not selected_summary_papers:
                                 st.warning("Please select at least one paper.")
                             else:
-                                with st.spinner("Analyzing themes..."):
-                                    context = f"You are a research analyst. Analyze the following papers and identify major themes and connections.\n\nPapers:\n{insights_context}"
-                                    response = get_gemini_response("Identify the major themes and connections between these papers. Create a thematic map of the research.", context)
-                                    st.session_state['thematic_response'] = response
+                                log_event("ai_call", {
+                                    "feature": "summary",
+                                    "input_length": len(selected_summary_papers),
+                                })
+                                with st.spinner(f"Generating {summary_type}..."):
+                                    selected_papers_data = [p for p in filtered_papers if p.get('title') in selected_summary_papers]
+                                    summary_context = "\n\n".join([
+                                        f"Title: {p.get('title')}\nAuthors: {', '.join(p.get('authors', []))}\nAbstract: {p.get('abstract', 'N/A')}\nKeywords: {', '.join(p.get('keywords', []))}"
+                                        for p in selected_papers_data
+                                    ])
+                                    prompts = {
+                                        "Literature Overview": "Provide a comprehensive literature overview summarizing the main themes, research areas, and contributions of these papers.",
+                                        "Research Gaps": "Identify potential research gaps and future research directions based on these papers.",
+                                        "Methodology Comparison": "Compare and contrast the research methodologies used across these papers.",
+                                        "Key Findings": "Summarize the key findings and conclusions from each paper."
+                                    }
+                                    context = f"You are an academic research analyst. Based on the following papers, {prompts[summary_type].lower()}\n\nPapers:\n{summary_context}"
+                                    response = get_gemini_response(prompts[summary_type], context)
+                                    log_event("ai_output_generated", {
+                                        "feature": "summary",
+                                        "output_length": len(response),
+                                    })
+                                    st.markdown(f"#### {summary_type}")
+                                    st.markdown(response)
                     
-                    with col2:
-                        if st.button("Citation Suggestions", width='stretch'):
-                            if not selected_insights_papers:
-                                st.warning("Please select at least one paper.")
-                            else:
-                                with st.spinner("Generating suggestions..."):
-                                    context = f"You are a research advisor. Based on the following papers, suggest how they could be cited together in a literature review.\n\nPapers:\n{insights_context}"
-                                    response = get_gemini_response("Suggest how these papers could be organized and cited together in a literature review section.", context)
-                                    st.session_state['citation_response'] = response
-                    
-                    if st.session_state.get('thematic_response'):
-                        st.markdown("#### Thematic Analysis")
-                        st.markdown(st.session_state['thematic_response'])
-                    
-                    if st.session_state.get('citation_response'):
-                        st.markdown("#### Citation Suggestions")
-                        st.markdown(st.session_state['citation_response'])
-
-                with ai_tab4:
-                    st.markdown("### Deep Research")
-                    st.markdown(
-                        "Describe what you're looking for in natural language. "
-                        "The AI will extract keywords, search Semantic Scholar, "
-                        "remove duplicates, and filter results by relevance to your description."
-                    )
-
-                    research_desc = st.text_area(
-                        "Research Description",
-                        placeholder="e.g., I'm looking for papers about using attention mechanisms for improving medical image segmentation",
-                        height=120,
-                        key="deep_research_desc"
-                    )
-
-                    if st.button("Start Deep Research", type="primary", key="deep_research_btn"):
-                        if not research_desc.strip():
-                            st.warning("Please enter a research description.")
-                        else:
-                            with st.status("Deep Research in progress...", expanded=True) as status:
-                                st.write("**Step 1/4** - Extracting search keywords from your description...")
-                                keyword_sets = extract_search_keywords(research_desc)
-                                for idx, kw_set in enumerate(keyword_sets):
-                                    st.write(f"  Keyword set {idx + 1}: `{', '.join(kw_set)}`")
-                                st.write(f"**Step 2/4** - Searching Semantic Scholar with {len(keyword_sets)} keyword sets...")
-                                raw_papers = search_and_collect(keyword_sets)
-                                st.write(f"  Found **{len(raw_papers)}** raw results.")
-
-                                if not raw_papers:
-                                    status.update(label="Deep Research completed - no results found.", state="complete")
-                                    st.warning("No papers were found. Try a different description.")
+                    elif selected_tool == "Research Insights":
+                        st.markdown('<div class="ai-content-header">Research Insights</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ai-content-subtitle">Get AI-generated thematic analysis and citation suggestions for your papers.</div>', unsafe_allow_html=True)
+                        
+                        insights_paper_titles = [p.get('title', 'Untitled') for p in filtered_papers]
+                        selected_insights_papers = st.multiselect(
+                            "Select papers to analyze",
+                            insights_paper_titles,
+                            default=insights_paper_titles[:10],
+                            key="insights_paper_select"
+                        )
+                        st.caption(f"Analyzing {len(selected_insights_papers)} of {len(filtered_papers)} papers.")
+                        
+                        insights_papers_data = [p for p in filtered_papers if p.get('title') in selected_insights_papers]
+                        insights_context = "\n\n".join([
+                            f"Title: {p.get('title')}\nAuthors: {', '.join(p.get('authors', []))}\nAbstract: {p.get('abstract', 'N/A')}\nKeywords: {', '.join(p.get('keywords', []))}"
+                            for p in insights_papers_data
+                        ])
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            if st.button("Thematic Analysis", width='stretch'):
+                                if not selected_insights_papers:
+                                    st.warning("Please select at least one paper.")
                                 else:
-                                    st.write("**Step 3/4** - Removing duplicate papers...")
-                                    unique_papers = deduplicate_papers(raw_papers)
-                                    removed = len(raw_papers) - len(unique_papers)
-                                    st.write(f"  Removed **{removed}** duplicates. **{len(unique_papers)}** unique papers remain.")
+                                    log_event("ai_call", {
+                                        "feature": "gap_analysis",
+                                        "input_length": len(selected_insights_papers),
+                                    })
+                                    with st.spinner("Analyzing themes..."):
+                                        context = f"You are a research analyst. Analyze the following papers and identify major themes and connections.\n\nPapers:\n{insights_context}"
+                                        response = get_gemini_response("Identify the major themes and connections between these papers. Create a thematic map of the research.", context)
+                                        log_event("ai_output_generated", {
+                                            "feature": "gap_analysis",
+                                            "output_length": len(response),
+                                        })
+                                        st.session_state['thematic_response'] = response
+                        
+                        with col2:
+                            if st.button("Citation Suggestions", width='stretch'):
+                                if not selected_insights_papers:
+                                    st.warning("Please select at least one paper.")
+                                else:
+                                    log_event("ai_call", {
+                                        "feature": "gap_analysis",
+                                        "input_length": len(selected_insights_papers),
+                                    })
+                                    with st.spinner("Generating suggestions..."):
+                                        context = f"You are a research advisor. Based on the following papers, suggest how they could be cited together in a literature review.\n\nPapers:\n{insights_context}"
+                                        response = get_gemini_response("Suggest how these papers could be organized and cited together in a literature review section.", context)
+                                        log_event("ai_output_generated", {
+                                            "feature": "gap_analysis",
+                                            "output_length": len(response),
+                                        })
+                                        st.session_state['citation_response'] = response
+                        
+                        if st.session_state.get('thematic_response'):
+                            st.markdown("#### Thematic Analysis")
+                            st.markdown(st.session_state['thematic_response'])
+                        
+                        if st.session_state.get('citation_response'):
+                            st.markdown("#### Citation Suggestions")
+                            st.markdown(st.session_state['citation_response'])
+    
+                    elif selected_tool == "Deep Research":
+                        st.markdown('<div class="ai-content-header">Deep Research</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="ai-content-subtitle">Describe what you\'re looking for in natural language. The AI will extract keywords, search Semantic Scholar, remove duplicates, and filter results by relevance.</div>', unsafe_allow_html=True)
+    
+                        research_desc = st.text_area(
+                            "Research Description",
+                            placeholder="e.g., I'm looking for papers about using attention mechanisms for improving medical image segmentation, specifically focusing on U-Net architectures.",
+                            height=120,
+                            key="deep_research_desc",
+                            help="Describe your research topic in detail. The more specific you are, the better the AI can find relevant papers."
+                        )
+    
+                        if st.button("Start Deep Research", type="primary", key="deep_research_btn", help="Click to extract keywords, search online, and filter papers based on your description."):
+                            if not research_desc.strip():
+                                st.warning("Please enter a research description.")
+                            else:
+                                log_event("ai_call", {
+                                    "feature": "deep_research",
+                                    "input_length": len(research_desc),
+                                })
+                                with st.status("Deep Research in progress...", expanded=True) as status:
+                                    st.write("**Step 1/4** - Extracting search keywords from your description...")
+                                    keyword_sets = extract_search_keywords(research_desc)
+                                    for idx, kw_set in enumerate(keyword_sets):
+                                        st.write(f"  Keyword set {idx + 1}: `{', '.join(kw_set)}`")
+                                    st.write(f"**Step 2/4** - Searching Semantic Scholar with {len(keyword_sets)} keyword sets...")
+                                    raw_papers = search_and_collect(keyword_sets)
+                                    st.write(f"  Found **{len(raw_papers)}** raw results.")
+    
+                                    if not raw_papers:
+                                        status.update(label="Deep Research completed - no results found.", state="complete")
+                                        st.warning("No papers were found. Try a different description.")
+                                    else:
+                                        st.write("**Step 3/4** - Removing duplicate papers...")
+                                        unique_papers = deduplicate_papers(raw_papers)
+                                        removed = len(raw_papers) - len(unique_papers)
+                                        st.write(f"  Removed **{removed}** duplicates. **{len(unique_papers)}** unique papers remain.")
+    
+                                        st.write(f"**Step 4/4** - Evaluating relevance of {len(unique_papers)} papers...")
+                                        progress_bar = st.progress(0, text="Evaluating papers...")
+                                        verdict_container = st.container()
+    
+                                        def progress_cb(i, total, title, is_relevant, verdict):
+                                            pct = (i + 1) / total
+                                            progress_bar.progress(pct, text=f"Evaluated {i + 1}/{total} papers")
+                                            icon = "[+]" if is_relevant else "[-]"
+                                            short_title = title[:80] + "..." if len(title) > 80 else title
+                                            verdict_container.write(f"  {icon} {short_title}")
+    
+                                        aligned_papers = filter_by_relevance(unique_papers, research_desc, progress_callback=progress_cb)
+    
+                                        status.update(
+                                            label=f"Deep Research complete - {len(aligned_papers)} relevant papers found!",
+                                            state="complete"
+                                        )
+    
+                                        st.session_state['deep_research_results'] = aligned_papers
+                                        log_event("ai_output_generated", {
+                                            "feature": "deep_research",
+                                            "output_length": len(aligned_papers),
+                                        })
+    
+                        if st.session_state.get('deep_research_results'):
+                            results = st.session_state['deep_research_results']
+                            st.markdown(f"### Results ({len(results)} relevant papers)")
+                            existing_titles = {p.get('title', '').lower() for p in st.session_state.get('user_papers', [])}
+                            for paper in results:
+                                with st.expander(f"{paper.get('title', 'Untitled')}", expanded=False):
+                                    log_event("deep_research_link_click", {
+                                        "paper_id": str(paper.get('id', '')),
+                                    })
+                                    render_paper_card(paper)
+                                    col_link, col_add = st.columns([3, 1])
+                                    with col_link:
+                                        if paper.get('url'):
+                                            if st.link_button("View on Semantic Scholar", paper.get('url')):
+                                                pass
+                                            log_event("source_verification_click", {
+                                                "paper_id": str(paper.get('id', '')),
+                                                "source_type": "deep_research_external_link",
+                                            })
+                                    with col_add:
+                                        already_added = paper.get('title', '').lower() in existing_titles
+                                        if already_added:
+                                            st.button("Already in Collection", key=f"dr_add_{paper.get('id')}", disabled=True)
+                                        else:
+                                            if st.button("Add to Knowledge Base", key=f"dr_add_{paper.get('id')}", type="primary"):
+                                                log_event("paper_select", {
+                                                    "paper_id": str(paper.get('id', '')),
+                                                    "source": "deep_research"
+                                                })
+                                                add_paper_to_collection(paper)
+                                                st.toast(f"Added: {paper.get('title')}")
+                                                st.rerun()
 
-                                    st.write(f"**Step 4/4** - Evaluating relevance of {len(unique_papers)} papers...")
-                                    progress_bar = st.progress(0, text="Evaluating papers...")
-                                    verdict_container = st.container()
 
-                                    def progress_cb(i, total, title, is_relevant, verdict):
-                                        pct = (i + 1) / total
-                                        progress_bar.progress(pct, text=f"Evaluated {i + 1}/{total} papers")
-                                        icon = "[+]" if is_relevant else "[-]"
-                                        short_title = title[:80] + "..." if len(title) > 80 else title
-                                        verdict_container.write(f"  {icon} {short_title}")
+def render_session_end():
+    """Post-session surveys and thank-you."""
+    p_name = st.session_state.get('participant_name', 'Participant')
+    st.markdown(f"""
+        <div style="text-align: center; padding: 2rem;">
+            <h1 class="main-header">Thank You, {p_name}!</h1>
+            <p class="sub-header">Please complete the following surveys before viewing your report.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-                                    aligned_papers = filter_by_relevance(unique_papers, research_desc, progress_callback=progress_cb)
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        st.markdown("### 1. System Usability Scale (SUS)")
+        st.caption("Rate each statement from 1 (Strongly Disagree) to 5 (Strongly Agree).")
+        st.info(
+            "This section measures how easy and pleasant you found the system to use overall. "
+            "There are no right or wrong answers — we are interested in your honest, personal impression. "
+            "Some statements are phrased positively and some negatively; please read each one carefully."
+        )
+        sus_items = [
+            ("I think that I would like to use this system frequently.",
+             "Consider whether you would choose to use this tool regularly for literature reviews."),
+            ("I found the system unnecessarily complex.",
+             "Think about whether the interface had too many features or confusing layouts."),
+            ("I thought the system was easy to use.",
+             "Reflect on how intuitive the controls, navigation, and workflows felt."),
+            ("I think that I would need the support of a technical person to use this system.",
+             "Consider whether you could use this tool independently without assistance."),
+            ("I found the various functions in this system were well integrated.",
+             "Think about whether features like search, filtering, and AI tools worked together smoothly."),
+            ("I thought there was too much inconsistency in this system.",
+             "Consider whether different parts of the interface behaved in unexpected or contradictory ways."),
+            ("I would imagine that most people would learn to use this system very quickly.",
+             "Think about whether a colleague with no prior training could pick this up easily."),
+            ("I found the system very cumbersome to use.",
+             "Reflect on whether completing tasks felt awkward, slow, or required too many steps."),
+            ("I felt very confident using the system.",
+             "Consider how sure you felt about knowing what to do at each step."),
+            ("I needed to learn a lot of things before I could get going with this system.",
+             "Think about how much upfront learning was required before you could be productive."),
+        ]
+        sus_responses = {}
+        for i, (item, tip) in enumerate(sus_items, 1):
+            sus_responses[f"Q{i}"] = st.slider(
+                f"Q{i}: {item}", 1, 5, 3, key=f"sus_q{i}",
+                help=tip
+            )
 
-                                    status.update(
-                                        label=f"Deep Research complete - {len(aligned_papers)} relevant papers found!",
-                                        state="complete"
-                                    )
+        st.markdown("---")
 
-                                    st.session_state['deep_research_results'] = aligned_papers
+        st.markdown("### 2. Cognitive Workload (NASA-TLX)")
+        st.caption("Rate each dimension from 1 (Very Low) to 7 (Very High).")
+        st.info(
+            "This section assesses how demanding the tasks felt across several dimensions. "
+            "A score of 1 means the demand was very low, and 7 means it was very high. "
+            "For **Performance**, a higher score means you felt more successful."
+        )
+        tlx_dims = [
+            ("Mental Demand", "How mentally demanding was the task?",
+             "How much thinking, deciding, calculating, or remembering was required?"),
+            ("Physical Demand", "How physically demanding was the task?",
+             "How much physical activity was required (e.g. scrolling, clicking, typing)?"),
+            ("Temporal Demand", "How hurried or rushed was the pace of the task?",
+             "Did you feel time pressure? Was the pace comfortable or stressful?"),
+            ("Performance", "How successful were you in accomplishing what you were asked to do?",
+             "How satisfied are you with your performance? Higher = more successful."),
+            ("Effort", "How hard did you have to work to accomplish your level of performance?",
+             "How much mental and physical effort did you have to put in overall?"),
+            ("Frustration", "How insecure, discouraged, irritated, stressed were you?",
+             "Did you feel annoyed, stressed, or discouraged at any point during the session?"),
+        ]
+        tlx_responses = {}
+        for dim_name, dim_desc, dim_tip in tlx_dims:
+            tlx_responses[dim_name] = st.slider(
+                f"{dim_name}: {dim_desc}", 1, 7, 4, key=f"tlx_{dim_name}",
+                help=dim_tip
+            )
 
-                    if st.session_state.get('deep_research_results'):
-                        results = st.session_state['deep_research_results']
-                        st.markdown(f"### Results ({len(results)} relevant papers)")
-                        for paper in results:
-                            render_paper_card(paper)
-                            if paper.get('url'):
-                                st.markdown(f"[View on Semantic Scholar]({paper.get('url')})")
+        st.markdown("---")
+
+        st.markdown("### 3. Trust in the System")
+        st.caption("Rate each statement from 1 (Strongly Disagree) to 7 (Strongly Agree).")
+        st.info(
+            "This section measures how much you trust the system and its outputs. "
+            "Consider factors like reliability, predictability, and whether you would feel comfortable "
+            "relying on the system for real research work."
+        )
+        trust_items = [
+            ("The system is reliable.",
+             "Did the system work consistently without errors or unexpected behavior?"),
+            ("I can trust the information provided by the system.",
+             "Did the results, summaries, and suggestions seem accurate and credible?"),
+            ("I am confident in the system's outputs.",
+             "Would you feel comfortable using the outputs in your actual research?"),
+            ("The system behaves in a predictable manner.",
+             "Could you anticipate how the system would respond to your actions?"),
+            ("I am comfortable relying on the system for my research tasks.",
+             "Would you delegate parts of your literature review workflow to this tool?"),
+        ]
+        trust_responses = {}
+        for i, (item, tip) in enumerate(trust_items, 1):
+            trust_responses[f"Q{i}"] = st.slider(
+                f"Q{i}: {item}", 1, 7, 4, key=f"trust_q{i}",
+                help=tip
+            )
+
+        st.markdown("---")
+
+        st.markdown("### 4. Fatigue & Engagement")
+        st.caption("Rate each statement from 1 (Strongly Disagree) to 5 (Strongly Agree).")
+        st.info(
+            "This section captures how tired or engaged you felt during the session. "
+            "Your answers help us understand whether the system is sustainable for extended use."
+        )
+        fatigue_items = [
+            ("I feel mentally fatigued after completing the tasks.",
+             "Do you feel mentally drained or tired after this session?"),
+            ("I remained engaged throughout the session.",
+             "Did you stay focused and interested, or did your attention drift?"),
+            ("I would be willing to use this tool again for literature review.",
+             "Knowing what you know now, would you voluntarily use this tool in the future?"),
+        ]
+        fatigue_responses = {}
+        for i, (item, tip) in enumerate(fatigue_items, 1):
+            fatigue_responses[f"Q{i}"] = st.slider(
+                f"Q{i}: {item}", 1, 5, 3, key=f"fatigue_q{i}",
+                help=tip
+            )
+
+        ai_pref_responses = {}
+        if st.session_state.get('used_ai_mode', False):
+            st.markdown("---")
+            st.markdown("### 5. AI Feature Preferences")
+            st.caption("Rate each statement from 1 (Strongly Disagree) to 5 (Strongly Agree).")
+            st.info(
+                "Since you used AI-assisted features during this session, we'd like to know how helpful they were. "
+                "Think about whether the AI tools saved you time, provided trustworthy outputs, and whether "
+                "you'd prefer the AI-assisted workflow over doing everything manually."
+            )
+            ai_pref_items = [
+                ("The AI features helped me find relevant papers faster.",
+                 "Did AI search, summaries, or deep research save you time compared to manual browsing?"),
+                ("I trusted the AI-generated summaries and insights.",
+                 "Did you find the AI outputs believable and accurate enough to use?"),
+                ("I would prefer using the AI-assisted mode over manual mode.",
+                 "Given the choice, would you pick the AI-assisted workflow for future tasks?"),
+            ]
+            for i, (item, tip) in enumerate(ai_pref_items, 1):
+                ai_pref_responses[f"Q{i}"] = st.slider(
+                    f"Q{i}: {item}", 1, 5, 3, key=f"ai_pref_q{i}",
+                    help=tip
+                )
+
+        st.markdown("---")
+
+        if st.button("Submit Surveys & View Report", type="primary", width='stretch'):
+            # Log all survey responses
+            log_event("survey_response", {
+                "instrument": "SUS",
+                "responses": sus_responses,
+            })
+            log_event("survey_response", {
+                "instrument": "NASA_TLX",
+                "responses": tlx_responses,
+            })
+            log_event("survey_response", {
+                "instrument": "Trust",
+                "responses": trust_responses,
+            })
+            log_event("survey_response", {
+                "instrument": "Fatigue",
+                "responses": fatigue_responses,
+            })
+            if ai_pref_responses:
+                log_event("survey_response", {
+                    "instrument": "AI_Preference",
+                    "responses": ai_pref_responses,
+                })
+            st.session_state.page = "session_report"
+            st.rerun()
+
+
+def render_session_report():
+    """Display a research report computed from the participant's event log."""
+    p_id = st.session_state.get('participant_id', 'N/A')
+    p_name = st.session_state.get('participant_name', 'Participant')
+
+    st.markdown(f"""
+        <div style="text-align: center; padding: 2rem;">
+            <h1 class="main-header">Session Report</h1>
+            <p class="sub-header">Summary for {p_name} (ID: {p_id})</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    events = load_participant_log(p_id)
+    if not events:
+        st.warning("No events found for this participant.")
+        return
+
+    metrics = compute_derived_metrics(events)
+
+    st.markdown("### Overview")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        tct = metrics.get('task_completion_time_seconds')
+        render_metric_card(
+            f"{tct:.0f}s" if tct else "N/A",
+            "Task Completion Time", "timer"
+        )
+    with c2:
+        render_metric_card(metrics.get('num_search_queries', 0), "Search Queries", "search")
+    with c3:
+        render_metric_card(metrics.get('num_papers_opened', 0), "Papers Opened", "open_in_new")
+    with c4:
+        render_metric_card(metrics.get('num_papers_selected', 0), "Papers Selected", "done_all")
+
+    st.markdown("---")
+
+    st.markdown("### A. Efficiency Metrics")
+    eff_data = {
+        "Metric": [
+            "Task Completion Time (s)",
+            "Search Queries",
+            "Keyword Refinements",
+            "Papers Opened",
+            "Papers Selected",
+        ],
+        "Value": [
+            f"{metrics.get('task_completion_time_seconds', 0):.1f}" if metrics.get('task_completion_time_seconds') else "N/A",
+            str(metrics.get('num_search_queries', 0)),
+            str(metrics.get('num_keyword_refinements', 0)),
+            str(metrics.get('num_papers_opened', 0)),
+            str(metrics.get('num_papers_selected', 0)),
+        ],
+    }
+    st.table(pd.DataFrame(eff_data))
+
+    st.markdown("---")
+
+    st.markdown("### B. Time Spent per Mode & Section")
+    time_metrics = metrics.get("time_metrics", {})
+    time_data = []
+    for cond, sections in time_metrics.items():
+        for sec, t_spent in sections.items():
+            time_data.append({"Mode": cond, "Section": sec, "Time (s)": round(t_spent, 1)})
+    if time_data:
+        time_df = pd.DataFrame(time_data)
+        time_pivot = time_df.pivot(index="Section", columns="Mode", values="Time (s)").fillna(0)
+        st.dataframe(time_pivot, width='stretch')
+        
+        st.markdown("**Total Time per Mode:**")
+        mode_totals = {cond: sum(sections.values()) for cond, sections in time_metrics.items()}
+        cols = st.columns(max(len(mode_totals), 1))
+        for i, (cond, total) in enumerate(mode_totals.items()):
+            with cols[i]:
+                render_metric_card(f"{total:.1f}s", cond, "schedule")
+    else:
+        st.info("No time tracking data available.")
+
+    st.markdown("---")
+
+    st.markdown("### C. AI Usage")
+    ai_col1, ai_col2 = st.columns(2)
+    with ai_col1:
+        ratio = metrics.get('ai_reliance_ratio')
+        render_metric_card(
+            f"{ratio:.2%}" if ratio is not None else "N/A",
+            "AI Reliance Ratio", "robot"
+        )
+    with ai_col2:
+        breakdown = metrics.get('ai_feature_breakdown', {})
+        if breakdown:
+            feat_df = pd.DataFrame(
+                list(breakdown.items()), columns=["Feature", "Calls"]
+            ).set_index("Feature")
+            st.bar_chart(feat_df["Calls"], color="#ffd700")
+        else:
+            st.info("No AI features were used in this session.")
+
+    st.markdown("---")
+
+    st.markdown("### D. Exploration Behavior")
+    expl_col1, expl_col2, expl_col3 = st.columns(3)
+    with expl_col1:
+        depth = metrics.get('exploration_depth')
+        render_metric_card(
+            f"{depth:.2f}" if depth is not None else "N/A",
+            "Exploration Depth (opened / selected)", "explore"
+        )
+    with expl_col2:
+        render_metric_card(
+            metrics.get('num_papers_opened', 0),
+            "Online Search File Opens", "verified"
+        )
+    with expl_col3:
+        render_metric_card(
+            metrics.get('num_deep_research_link_clicks', 0),
+            "Deep Research Link Clicks", "ads_click"
+        )
+
+    st.markdown("---")
+
+    st.markdown("### E. Trust & Verification")
+    vr = metrics.get('verification_rate')
+    dr_vr = metrics.get('deep_research_verification_rate')
+    
+    tr_col1, tr_col2 = st.columns(2)
+    with tr_col1:
+        render_metric_card(
+            f"{vr:.2f}" if vr is not None else "N/A",
+            "Verifications per AI Output", "shield"
+        )
+    with tr_col2:
+        render_metric_card(
+            f"{dr_vr:.2f}" if dr_vr is not None else "N/A",
+            "Verifications per Deep Research Output", "verified_user"
+        )
+
+    st.markdown("---")
+
+    st.markdown("### F. Survey Scores")
+    survey_col1, survey_col2, survey_col3 = st.columns(3)
+    with survey_col1:
+        sus = metrics.get('sus_score')
+        render_metric_card(
+            f"{sus:.1f}" if sus is not None else "N/A",
+            "SUS Score (0–100)", "fact_check"
+        )
+    with survey_col2:
+        tlx = metrics.get('nasa_tlx_mean')
+        render_metric_card(
+            f"{tlx:.2f}" if tlx is not None else "N/A",
+            "NASA-TLX Mean (1–7)", "psychology"
+        )
+    with survey_col3:
+        trust = metrics.get('trust_mean')
+        render_metric_card(
+            f"{trust:.2f}" if trust is not None else "N/A",
+            "Trust Mean (1–7)", "handshake"
+        )
+
+    st.markdown("---")
+
+    st.markdown("### G. Event Timeline")
+    timeline_data = []
+    for e in events:
+        timeline_data.append({
+            "Time": e["timestamp"],
+            "Event": e["event_type"],
+            "Condition": e["condition"],
+        })
+    if timeline_data:
+        st.dataframe(pd.DataFrame(timeline_data), width='stretch')
+
+    st.markdown("---")
+
+    st.markdown("### H. Export")
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        csv_str = events_to_csv_string(events)
+        st.download_button(
+            "Download Event Log (CSV)",
+            data=csv_str,
+            file_name=f"{p_id}_events.csv",
+            mime="text/csv",
+            width='stretch',
+        )
+    with exp_col2:
+        import json as _json
+        report_json = _json.dumps({
+            "participant_id": p_id,
+            "participant_name": p_name,
+            "metrics": {k: v for k, v in metrics.items()},
+        }, indent=2, default=str)
+        st.download_button(
+            "Download Summary Report (JSON)",
+            data=report_json,
+            file_name=f"{p_id}_report.json",
+            mime="application/json",
+            width='stretch',
+        )
+
+    st.markdown("---")
+    if st.button("Start New Session", type="primary", width='stretch'):
+        # Clear session and restart
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+
+def render_task_briefing():
+    """Render the task sample, criteria, and tool intro."""
+    import random
+    import sys
+    import os
+    
+    sys.path.append(os.path.dirname(__file__))
+    try:
+        from task_config import TASKS, TOOL_TUTORIALS
+    except ImportError:
+        TASKS = {"T1": {"name": "T1", "objective": "", "criteria": [], "samples": [""]}}
+        TOOL_TUTORIALS = {"Manual": [], "AI": []}
+
+    st.markdown("""
+        <div style="text-align: center; padding: 2rem;">
+            <h1 class="main-header">Task Briefing</h1>
+            <p class="sub-header">Review your assigned task and available tools</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Identify task
+    task_id_raw = st.session_state.get("task_id", "T1 (Targeted Literature Search)")
+    t_id = "T1" if "T1" in task_id_raw else "T2"
+    task_info = TASKS.get(t_id, TASKS.get("T1"))
+    
+    # Randomly select a sample if not already selected
+    if 'task_sample' not in st.session_state:
+        st.session_state.task_sample = random.choice(task_info["samples"])
+        
+    sample = st.session_state.task_sample
+    
+    # Task specific details
+    st.markdown(f"### {task_info['name']}")
+    st.markdown(f"**Objective:** {task_info['objective']}")
+    st.info(f"**Your Topic:**\n\n{sample}")
+    
+    st.markdown("#### Requirements:")
+    for c in task_info['criteria']:
+        st.markdown(f"- {c}")
+        
+    st.markdown("---")
+    
+    # Tool introduction based on mode
+    ai_mode = st.session_state.get("ai_mode", False)
+    mode_str = "AI" if ai_mode else "Manual"
+    st.markdown(f"### Available Tools ({mode_str} Mode)")
+    
+    tools = TOOL_TUTORIALS.get(mode_str, TOOL_TUTORIALS.get("Manual", []))
+    for t in tools:
+        st.markdown(t)
+        
+    st.markdown("---")
+    if st.button("Proceed to Dashboard", type="primary", width='stretch'):
+        if ai_mode:
+            if init_gemini():
+                st.session_state.page = "dashboard"
+            else:
+                st.session_state.page = "api_key"
+        else:
+            if not get_semantic_scholar_key():
+                st.session_state.page = "ss_api_key"
+            else:
+                st.session_state.page = "dashboard"
+        st.rerun()
 
 def main():
     """Main application entry point with page routing."""
+    init_session()
+
     if 'page' not in st.session_state:
-        st.session_state.page = "home"
+        st.session_state.page = "participant_setup"
     if 'ai_mode' not in st.session_state:
         st.session_state.ai_mode = False
     if 'search_results' not in st.session_state:
@@ -1309,12 +2154,23 @@ def main():
             st.session_state.user_papers = load_data(str(data_path))
         else:
             st.session_state.user_papers = []
-    if st.session_state.page == "home":
+
+    page = st.session_state.page
+
+    if page == "participant_setup":
+        render_participant_setup()
+    elif page == "home":
         render_homepage()
-    elif st.session_state.page == "api_key":
+    elif page == "task_briefing":
+        render_task_briefing()
+    elif page == "api_key":
         render_api_key_input()
-    elif st.session_state.page == "ss_api_key":
+    elif page == "ss_api_key":
         render_ss_api_key_input()
+    elif page == "session_end":
+        render_session_end()
+    elif page == "session_report":
+        render_session_report()
     else:
         render_dashboard()
 
