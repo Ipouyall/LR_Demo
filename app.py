@@ -1681,6 +1681,19 @@ def render_session_end():
     """Post-session surveys and thank-you."""
     p_name = st.session_state.get('participant_name', 'Participant')
     st.markdown(f"""
+        <style>
+            /* Improve readability of survey text */
+            div[data-testid="stSlider"] label p {{
+                color: #f0f0f0 !important;
+                font-size: 1.05rem !important;
+            }}
+            div[data-testid="stMarkdownContainer"] p {{
+                color: #e0e0e0 !important;
+            }}
+            div[data-testid="stCaptionContainer"] {{
+                color: #b0b0b0 !important;
+            }}
+        </style>
         <div style="text-align: center; padding: 2rem;">
             <h1 class="main-header">Thank You, {p_name}!</h1>
             <p class="sub-header">Please complete the following surveys before viewing your report.</p>
